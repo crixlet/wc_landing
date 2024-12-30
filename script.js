@@ -2,6 +2,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Lucide icons
     lucide.createIcons();
 
+    // Handle scroll indicator
+    const scrollIndicator = document.querySelector('.scroll-indicator');
+    let hasScrolled = false;
+
+    // Hide scroll indicator on any scroll
+    window.addEventListener('scroll', () => {
+        if (!hasScrolled && scrollIndicator) {
+            hasScrolled = true;
+            scrollIndicator.classList.add('hidden');
+        }
+    }, { passive: true }); // Add passive flag for better performance
+
     // Initialize carousel
     const carousel = {
         currentSlide: 0,
@@ -58,24 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the carousel
     carousel.init();
 
-    // Handle logo visibility on scroll
+    // Handle logo visibility on scroll down only
     const logo = document.querySelector('.logo');
-    let lastScrollTop = 0;
     let scrollTimeout;
 
     function handleScroll() {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         
-        // Show logo when scrolling up, hide when scrolling down
-        if (scrollTop > lastScrollTop && scrollTop > 100) {
-            // Scrolling down
+        // Only hide logo when scrolling down past threshold
+        if (scrollTop > 100) {
             logo.classList.add('hidden');
         } else {
-            // Scrolling up
             logo.classList.remove('hidden');
         }
-
-        lastScrollTop = scrollTop;
     }
 
     // Add debounced scroll listener
@@ -177,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
             openModalBtn.addEventListener('click', () => {
                 modal.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
+                // Track modal open
+                gtag('event', 'modal_open', {
+                    'event_category': 'Engagement',
+                    'event_label': 'Waitlist Modal'
+                });
             });
         }
 
@@ -184,6 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModalBtn.addEventListener('click', () => {
                 modal.style.display = 'none';
                 document.body.style.overflow = '';
+                // Track modal close
+                gtag('event', 'modal_close', {
+                    'event_category': 'Engagement',
+                    'event_label': 'Waitlist Modal'
+                });
                 // Reset form when closing modal
                 waitlistForm.reset();
                 // Reset to first step
@@ -220,6 +237,13 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', async () => {
                 const currentStep = parseInt(button.closest('.step-content').dataset.step);
                 
+                // Track step completion
+                gtag('event', 'step_complete', {
+                    'event_category': 'Form Progress',
+                    'event_label': `Step ${currentStep}`,
+                    'value': currentStep
+                });
+
                 // Validation checks
                 if (currentStep === 1) {
                     const emailInput = document.getElementById('email');
@@ -273,6 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', () => {
                 const currentStep = parseInt(button.closest('.step-content').dataset.step);
                 const prevStep = parseInt(button.dataset.prev);
+                
+                // Track step back
+                gtag('event', 'step_back', {
+                    'event_category': 'Form Progress',
+                    'event_label': `From Step ${currentStep} to ${prevStep}`,
+                    'value': prevStep
+                });
+
                 navigateToStep(currentStep, prevStep);
             });
         });
@@ -385,13 +417,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                console.log('Form submission response:', response);
-
                 if (response.ok) {
                     console.log('Form submitted successfully');
-                    // Move to confirmation step
+                    
+                    // Track successful form submission
+                    gtag('event', 'form_submit', {
+                        'event_category': 'Waitlist',
+                        'event_label': 'Success',
+                        'value': 1
+                    });
+
+                    // Track selected teams
+                    const selectedTeams = Array.from(document.querySelectorAll('input[name="teams[]"]:checked'))
+                        .map(checkbox => checkbox.value);
+                    gtag('event', 'team_selection', {
+                        'event_category': 'Form Data',
+                        'event_label': 'Selected Teams',
+                        'teams': selectedTeams
+                    });
+
+                    // Track CGM provider selection
+                    const selectedCgm = document.querySelector('input[name="cgm_provider"]:checked');
+                    if (selectedCgm) {
+                        gtag('event', 'cgm_selection', {
+                            'event_category': 'Form Data',
+                            'event_label': 'CGM Provider',
+                            'provider': selectedCgm.value
+                        });
+                    }
+
                     navigateToStep(4, 5);
-                    // Reset form data
                     waitlistForm.reset();
                     // Hide any visible "other" input fields
                     if (otherTeamDescription) {
@@ -401,6 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         otherCgmContainer.style.display = 'none';
                     }
                 } else {
+                    // Track form submission error
+                    gtag('event', 'form_error', {
+                        'event_category': 'Waitlist',
+                        'event_label': 'Submission Failed',
+                        'value': 0
+                    });
+
                     const data = await response.json();
                     console.error('Form submission error:', data);
                     if (Object.hasOwn(data, 'errors')) {
@@ -410,6 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch (error) {
+                // Track form submission error
+                gtag('event', 'form_error', {
+                    'event_category': 'Waitlist',
+                    'event_label': 'Network/System Error',
+                    'value': 0
+                });
                 console.error('Error submitting form:', error);
             }
         }
